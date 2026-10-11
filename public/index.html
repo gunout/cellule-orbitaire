@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🇫🇷 Cellule Orbitale · Suivi ISS + termtrack</title>
+<script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+@font-face{font-family:'Nasalization';src:url('fonts/nasalization.ttf') format('truetype');font-display:swap}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Nasalization','Segoe UI',system-ui,sans-serif;background:#f6f6f6;color:#1e1e1e;min-height:100vh}
+.tricolore{position:fixed;top:0;left:0;right:0;height:4px;display:flex;z-index:1000}
+.tricolore span{flex:1}.t-bleu{background:#000091}.t-blanc{background:#fff}.t-rouge{background:#E1000F}
+.bandeau-etat{background:#fff;border-bottom:2px solid #000091;margin-bottom:20px;position:relative}
+.bandeau-etat::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(to right,#000091 0 33.33%,#fff 33.33% 66.66%,#E1000F 66.66% 100%)}
+.bandeau-etat-content{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:14px 20px}
+.bloc-marianne{display:flex;align-items:center;gap:12px;padding:8px 16px;background:#fff;
+  border-left:4px solid #000091;border-right:4px solid #E1000F}
+.marianne-sceau{width:52px;height:52px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#1212ff,#000091);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;
+  border:3px solid #fff;box-shadow:0 0 0 2px #000091,0 4px 12px rgba(0,0,145,.25)}
+.bloc-marque-txt .republique{display:block;font-weight:800;color:#000091;font-size:15px;
+  letter-spacing:.5px;text-transform:uppercase}
+.bloc-marque-txt .ministere{display:block;font-size:10px;color:#3a3a3a;margin-top:2px}
+.bloc-marque-txt .direction{display:block;font-size:9px;color:#929292;margin-top:2px;
+  text-transform:uppercase;letter-spacing:1px}
+.bloc-devise{margin-left:auto;text-align:right;font-size:11px;color:#000091;
+  letter-spacing:3px;text-transform:uppercase;font-weight:700}
+.bloc-devise em{display:block;font-style:normal}
+.bloc-devise .ref-legale{font-family:monospace;font-size:8px;color:#929292;letter-spacing:.5px;
+  margin-top:4px;font-weight:400;text-transform:none}
+.main-container{max-width:1200px;margin:0 auto;padding:0 16px}
+.header{text-align:center;padding:25px 20px;margin-bottom:20px;
+  background:linear-gradient(135deg,#fff,#f0f3ff);border-radius:16px;border:1px solid #e5e5e5;
+  position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;
+  background:linear-gradient(90deg,#000091 0 33.33%,#fff 33.33% 66.66%,#E1000F 66.66% 100%)}
+.header h1{font-size:2rem;font-weight:700;letter-spacing:1.5px;
+  background:linear-gradient(90deg,#000091,#1212ff,#E1000F);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header p{color:#666;font-size:.95rem;margin-top:6px}
+.search-section{background:#fff;padding:18px 20px;border-radius:16px;border:1px solid #e5e5e5;
+  margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,145,.04)}
+.section-title{color:#1e1e1e;font-size:1rem;font-weight:700;margin:16px 0 8px;
+  padding-bottom:5px;border-bottom:2px solid #e5e5e5;
+  border-image:linear-gradient(90deg,#000091,#fff,#E1000F) 1}
+.terminal-frame{background:#f6f6f6;border:2px solid #000091;border-radius:12px;
+  padding:12px;overflow:hidden;position:relative;min-height:200px}
+.terminal-frame::before{content:'';position:absolute;inset:0;pointer-events:none;border-radius:10px;z-index:2;
+  background:repeating-linear-gradient(0deg,rgba(0,0,145,.03) 0 1px,transparent 1px 3px)}
+#pty-terminal{position:relative;z-index:1}
+.pty-toolbar{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+button{padding:8px 16px;border-radius:20px;border:1px solid #e5e5e5;background:#fff;color:#666;
+  font-family:'Nasalization',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;transition:.2s;letter-spacing:.5px}
+button:hover{border-color:#000091;color:#000091;background:#e3e3fd}
+button.btn-primary{background:#000091;color:#fff;border-color:#000091}
+button.btn-primary:hover{background:#E1000F;border-color:#E1000F}
+button.btn-clear{border-color:#E1000F;color:#E1000F}
+button.btn-clear:hover{background:#ffe9e9}
+#status{margin-top:12px;text-align:center;color:#000091;font-size:.75rem;letter-spacing:1.5px;
+  text-transform:uppercase;font-weight:700;min-height:1.2em;padding:8px}
+.tabs{display:flex;gap:4px;margin:0 0 16px 0;border-bottom:2px solid #e5e5e5}
+.tab{padding:10px 20px;border:none;border-radius:12px 12px 0 0;background:transparent;color:#666;
+  font-family:'Nasalization',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;letter-spacing:.5px}
+.tab.active{background:#000091;color:#fff}
+#output{font-family:monospace;font-size:11px;line-height:1.05;white-space:pre;color:#1e1e1e}
+#output .line{white-space:pre}
+.logo{color:#000091;font-weight:700}
+.stars{color:#E1000F}
+.land{color:#1212ff}
+.land-alt{color:#6b6bff}
+.ocean{color:#f6f6f6}
+.paris{color:#E1000F;font-weight:700}
+.iss{color:#16a34a;font-weight:700}
+.track{color:#65a30d}
+.border{color:#929292}
+.footer{color:#666;margin-top:6px;font-size:11px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:8px;margin-top:14px}
+.stat-card{background:#fff;padding:10px 14px;border-radius:10px;border:1px solid #e5e5e5;
+  border-left:4px solid #000091;box-shadow:0 1px 3px rgba(0,0,145,.03)}
+.stat-card .label{color:#929292;font-size:.55rem;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.stat-card .value{font-size:.95rem;font-weight:700;margin-top:3px;font-family:monospace;word-break:break-all}
+.stat-card .value.bleu{color:#000091}
+.stat-card .value.rouge{color:#E1000F}
+.stat-card .value.vert{color:#16a34a}
+.countdown-box{background:linear-gradient(135deg,#fff,#f0f3ff);border:1px solid #e5e5e5;
+  border-radius:14px;padding:18px;text-align:center;margin-bottom:14px;border-left:5px solid #E1000F}
+.countdown-box .label{color:#929292;font-size:.65rem;text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+.countdown-box #countdown{font-size:2.2rem;font-weight:800;color:#E1000F;margin:6px 0;font-family:monospace}
+.countdown-box #nextInfo{color:#666;font-size:.85rem}
+.passes-grid{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+@media(max-width:900px){.passes-grid{grid-template-columns:1fr}}
+.skymap-wrap{position:relative;width:320px;height:320px;margin:0 auto}
+#skyMap{width:100%;height:100%;display:block}
+.horizon-label{position:absolute;font-weight:700;color:#000091;font-size:.8rem}
+.horizon-label.n{top:-6px;left:50%;transform:translateX(-50%)}
+.horizon-label.s{bottom:-6px;left:50%;transform:translateX(-50%)}
+.horizon-label.e{right:-6px;top:50%;transform:translateY(-50%)}
+.horizon-label.w{left:-6px;top:50%;transform:translateY(-50%)}
+#skyMapInfo{text-align:center;color:#666;font-size:.85rem;margin-top:10px;font-family:monospace}
+.filter-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.filter-row label{display:flex;align-items:center;gap:6px;font-size:.8rem;color:#666;cursor:pointer}
+.filter-row input[type=checkbox]{accent-color:#000091;width:16px;height:16px;cursor:pointer}
+.pass-card{background:#fff;border-radius:12px;padding:14px 16px;margin:10px 0;
+  border-left:5px solid #000091;cursor:pointer;transition:.15s;
+  border-top:1px solid #f0f0f0;border-right:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0}
+.pass-card:hover{background:#f9f9ff;box-shadow:0 2px 8px rgba(0,0,145,.08)}
+.pass-card.visible{border-left-color:#16a34a}
+.pass-card.best{border-left-color:#E1000F}
+.pass-card.selected{background:#e3e3fd;box-shadow:0 0 0 2px #000091}
+.pass-card .time{font-size:1.05rem;font-weight:700;color:#1e1e1e;letter-spacing:.3px}
+.pass-card .meta{color:#666;font-size:.8rem;margin-top:6px;font-family:monospace;line-height:1.5}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.68rem;
+  margin-left:8px;vertical-align:middle;font-weight:700;letter-spacing:.5px}
+.badge.vis{background:#dcfce7;color:#16a34a}
+.badge.no{background:#f1f5f9;color:#64748b}
+.footer-officiel{background:#fff;border-top:2px solid #000091;padding:24px 20px 16px;text-align:center;
+  color:#3a3a3a;font-size:11px;margin-top:40px}
+.footer-officiel .devise-footer{font-size:13px;color:#000091;letter-spacing:4px;
+  text-transform:uppercase;font-weight:700;margin-bottom:8px}
+.footer-officiel .mention-legale{color:#929292;font-size:9px;font-family:monospace;letter-spacing:.5px;margin-top:8px;line-height:1.6}
+.footer-officiel .copyright-footer{margin-top:10px;font-family:monospace;font-size:10px;color:#929292}
+.footer-officiel .copyright-footer .sig{font-weight:700;letter-spacing:2px;
+  background:linear-gradient(90deg,#000091,#E1000F);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+@media(max-width:600px){
+  .bandeau-etat-content{flex-direction:column;gap:10px;padding:10px 12px}
+  .bloc-devise{margin-left:0;text-align:center}
+  .header h1{font-size:1.3rem}
+  button{width:100%}
+  .skymap-wrap{width:260px;height:260px}
+  .countdown-box #countdown{font-size:1.6rem}
+}
+</style>
+</head>
+<body>
+
+<div class="tricolore"><span class="t-bleu"></span><span class="t-blanc"></span><span class="t-rouge"></span></div>
+
+<div class="bandeau-etat">
+  <div class="bandeau-etat-content">
+    <div class="bloc-marianne">
+      <div class="marianne-sceau">RF</div>
+      <div class="bloc-marque-txt">
+        <span class="republique">République Française</span>
+        <span class="ministere">Ministère de l'Enseignement supérieur<br>et de la Recherche</span>
+        <span class="direction">Cellule orbitale · Terminal termtrack · Suivi ISS</span>
+      </div>
+    </div>
+    <div class="bloc-devise">
+      <em>Liberté</em><em>Égalité</em><em>Fraternité</em>
+      <div class="ref-legale">Monitor Orbital v2.0 · NORAD 25544 · PTY node-pty</div>
+    </div>
+  </div>
+</div>
+
+<div class="main-container">
+  <div class="header">
+    <h1>🛰️ Cellule orbitale — Console intégrée</h1>
+    <p>Terminal termtrack · Suivi ISS temps réel · 72 satellites météo · 🇫🇷</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="btn-term" onclick="switchTab('tab-term')">🖥️ Terminal termtrack</button>
+    <button class="tab" id="btn-iss" onclick="switchTab('tab-iss')">🛰️ Suivi ISS (satellite.js)</button>
+  </div>
+
+  <!-- ═══════════════ ONGLET 1 : TERMINAL ═══════════════ -->
+  <div id="tab-term">
+    <div class="search-section">
+      <div class="section-title"><span>🖥️</span> Terminal termtrack (PTY distant)</div>
+      <div class="terminal-frame"><div id="pty-terminal"></div></div>
+      <div class="pty-toolbar">
+        <select id="sat-select" style="padding:8px 14px;border-radius:20px;border:1px solid #e5e5e5;
+          background:#fff;color:#000091;font-family:'Nasalization',sans-serif;font-size:.75rem;
+          font-weight:600;cursor:pointer;letter-spacing:.5px;max-width:320px">
+          <option>Chargement…</option>
+        </select>
+        <button class="btn-primary" onclick="window.__pty.reconnect()">🔄 Reconnecter</button>
+        <button onclick="window.__pty.clear()">🧹 Effacer</button>
+        <button onclick="window.__pty.fit()">📐 Ajuster</button>
+        <button onclick="window.__pty.screenshot()">📸 Capture PNG</button>
+      </div>
+      <div id="status">PTY initialisé — sélectionnez un satellite</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ONGLET 2 : ISS ═══════════════ -->
+  <div id="tab-iss" style="display:none">
+    <div class="search-section">
+      <div class="section-title"><span>📊</span> Carte ASCII ISS (satellite.js)</div>
+      <div class="terminal-frame"><div id="output"></div></div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="label">Latitude</div><div class="value vert" id="tm-lat">—</div></div>
+        <div class="stat-card"><div class="label">Longitude</div><div class="value vert" id="tm-lon">—</div></div>
+        <div class="stat-card"><div class="label">Altitude</div><div class="value bleu" id="tm-alt">—</div></div>
+        <div class="stat-card"><div class="label">Vitesse orbitale</div><div class="value bleu" id="tm-vit">—</div></div>
+        <div class="stat-card"><div class="label">Cap (azimut)</div><div class="value rouge" id="tm-cap">—</div></div>
+        <div class="stat-card"><div class="label">Période orbitale</div><div class="value rouge" id="tm-periode">—</div></div>
+      </div>
+      <div id="controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn-primary" id="btn-toggle-iss">⏸ Pause</button>
+        <button id="btn-refresh-iss">🔄 Recharger TLE</button>
+        <button class="btn-clear" id="btn-clear-iss">🧹 Effacer trace</button>
+        <button id="btn-geo-iss">📍 Ma position</button>
+      </div>
+    </div>
+
+    <div class="search-section">
+      <div class="countdown-box">
+        <div class="label">Prochain passage dans</div>
+        <div id="countdown">—</div>
+        <div id="nextInfo"></div>
+      </div>
+      <div class="section-title"><span>📅</span> Prochains passages (72 h)</div>
+      <div class="filter-row">
+        <label><input type="checkbox" id="visibleOnly"> Passages visibles uniquement</label>
+        <span id="observerLabel" style="color:#929292;font-size:0.75rem;font-family:monospace">
+          Observateur : La Réunion (-20.88, 55.45)
+        </span>
+      </div>
+      <div class="passes-grid">
+        <div id="list">Chargement…</div>
+        <div>
+          <div class="skymap-wrap">
+            <svg id="skyMap" viewBox="-110 -110 220 220"></svg>
+            <div class="horizon-label n">N</div>
+            <div class="horizon-label e">E</div>
+            <div class="horizon-label s">S</div>
+            <div class="horizon-label w">O</div>
+          </div>
+          <div id="skyMapInfo">Sélectionnez un passage ci‑contre.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="status-global" style="text-align:center;color:#929292;font-family:monospace;font-size:11px;padding:8px">
+    Serveur PTY : ws://127.0.0.1:3013/pty
+  </div>
+</div>
+
+<footer class="footer-officiel">
+  <div class="devise-footer">Liberté · Égalité · Fraternité</div>
+  <div>République Française — Ministère de l'Enseignement supérieur et de la Recherche</div>
+  <div class="mention-legale">
+    Cellule orbitale — Terminal termtrack via PTY node-pty · Suivi ISS via satellite.js<br>
+    node-pty · xterm.js · express · ws · termtrack · satellite.js · Natural Earth 110m
+  </div>
+  <div class="copyright-footer">
+    © <span id="copyrightYear">2025</span> · <span class="sig">CELLULE ORBITALE</span> · Tous droits réservés
+  </div>
+</footer>
+
+<script>document.getElementById('copyrightYear').textContent = new Date().getFullYear();</script>
+<script src="term.js"></script>
+<script>
+'use strict';
+(function () {
+  function switchTab(id) {
+    ['tab-term', 'tab-iss'].forEach(t => {
+      document.getElementById(t).style.display = (t === id) ? '' : 'none';
+    });
+    document.getElementById('btn-term').classList.toggle('active', id === 'tab-term');
+    document.getElementById('btn-iss').classList.toggle('active', id === 'tab-iss');
+  }
+  window.switchTab = switchTab;
+
+  const COLS = 120, ROWS = 50, ISS_NORAD = 25544, TRACK_MAX = 20;
+  const MIN_ELEV = 10, HOURS_WINDOW = 72;
+
+  const MARKERS = [
+    { name:'Paris',  lon:  2.35, lat: 48.85, char:'X', cls:'paris' },
+    { name:'Kourou', lon:-52.65, lat:  5.16, char:'O', cls:'paris' },
+  ];
+
+  function toDMS(v, p, n) {
+    const h = v >= 0 ? p : n, a = Math.abs(v);
+    const d = Math.floor(a), mf = (a - d) * 60, m = Math.floor(mf);
+    const s = ((mf - m) * 60).toFixed(1);
+    return `${d}° ${String(m).padStart(2,'0')}' ${String(s).padStart(4,'0')}" ${h}`;
+  }
+
+  let landFeatures = [];
+  async function loadLand() {
+    const urls = [
+      'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson',
+      'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_land.geojson',
+    ];
+    for (const u of urls) {
+      try { const j = await fetch(u).then(r => r.json()); landFeatures = j.features || []; return true; }
+      catch (e) {}
+    }
+    return false;
+  }
+  function pointInRing(lon, lat, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if (((yi > lat) !== (yj > lat)) && (lon < (xj-xi)*(lat-yi)/(yj-yi)+xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function pointInPolygon(lon, lat, poly) {
+    if (!pointInRing(lon, lat, poly[0])) return false;
+    for (let i = 1; i < poly.length; i++) if (pointInRing(lon, lat, poly[i])) return false;
+    return true;
+  }
+  function isLand(lon, lat) {
+    for (const f of landFeatures) {
+      const g = f.geometry; if (!g) continue;
+      if (g.type === 'Polygon' && pointInPolygon(lon, lat, g.coordinates)) return true;
+      if (g.type === 'MultiPolygon') for (const p of g.coordinates) if (pointInPolygon(lon, lat, p)) return true;
+    }
+    return false;
+  }
+  function buildGrid() {
+    const g = [];
+    for (let i = 0; i < ROWS; i++) {
+      const lat = 90 - i * 180 / ROWS, row = [];
+      for (let j = 0; j < COLS; j++) {
+        const lon = -180 + j * 360 / COLS, land = isLand(lon, lat);
+        row.push({ char: land ? ((i+j)%2 ? '·' : '•') : ' ', cls: land ? ((i+j)%2 ? 'land-alt' : 'land') : 'ocean' });
+      }
+      g.push(row);
+    }
+    return g;
+  }
+  function project(lon, lat) {
+    const i = Math.floor((90-lat)/180*ROWS), j = Math.floor((lon+180)/360*COLS);
+    return (i<0||i>=ROWS||j<0||j>=COLS) ? null : { i, j };
+  }
+
+  let issTrack = [];
+  function renderGrid(grid, issPos) {
+    const g = grid.map(r => r.map(c => ({ ...c })));
+    for (const m of MARKERS) {
+      const p = project(m.lon, m.lat);
+      if (p) { g[p.i][p.j].char = m.char; g[p.i][p.j].cls = m.cls; }
+    }
+    for (const t of issTrack) {
+      const p = project(t.lon, t.lat);
+      if (p && (g[p.i][p.j].char === ' ' || g[p.i][p.j].char === '·' || g[p.i][p.j].char === '•')) {
+        g[p.i][p.j].char = '.'; g[p.i][p.j].cls = 'track';
+      }
+    }
+    if (issPos) {
+      const p = project(issPos.lon, issPos.lat);
+      if (p) { g[p.i][p.j].char = '◉'; g[p.i][p.j].cls = 'iss'; }
+    }
+    const out = document.getElementById('output'); if (!out) return;
+    let html = '';
+    html += `<div class="line border">+${'-'.repeat(COLS)}+</div>`;
+    for (let i = 0; i < ROWS; i++) {
+      let line = `<span class="border">|</span>`;
+      for (let j = 0; j < COLS; j++) {
+        const c = g[i][j];
+        line += `<span class="${c.cls}">${c.char === ' ' ? '&nbsp;' : c.char}</span>`;
+      }
+      line += `<span class="border">|</span>`;
+      html += `<div class="line">${line}</div>`;
+    }
+    html += `<div class="line border">+${'-'.repeat(COLS)}+</div>`;
+    html += `<div class="line footer"><span class="iss">◉</span> ISS  `;
+    html += `<span class="track">.</span> Trace  <span class="paris">X</span> Paris  `;
+    html += `<span class="paris">O</span> Kourou  <span class="land">• ·</span> Terre</div>`;
+    out.innerHTML = html;
+  }
+
+  function renderTelemesures(p) {
+    if (!p) {
+      ['tm-lat','tm-lon','tm-alt','tm-vit','tm-cap','tm-periode'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.textContent = '—';
+      });
+      return;
+    }
+    document.getElementById('tm-lat').textContent = toDMS(p.lat, 'N', 'S');
+    document.getElementById('tm-lon').textContent = toDMS(p.lon, 'E', 'O');
+    document.getElementById('tm-alt').textContent = `${p.alt.toFixed(1)} km`;
+    document.getElementById('tm-vit').textContent = `${p.speed.toFixed(3)} km/s`;
+    const cap = ((p.heading % 360) + 360) % 360;
+    document.getElementById('tm-cap').textContent = `${cap.toFixed(1)}°`;
+    document.getElementById('tm-periode').textContent = `${p.period.toFixed(1)} min`;
+  }
+
+  let issSatrec = null, currentSatrec = null, paused = false, baseGrid = null, lastPos = null;
+
+  async function loadTLE() {
+    setStatus('🔄 Chargement du TLE ISS…');
+    issSatrec = null;
+    try {
+      const r = await fetch('/api/iss-tle');
+      const j = await r.json();
+      if (j.ok) {
+        issSatrec = satellite.twoline2satrec(j.line1, j.line2);
+        currentSatrec = issSatrec;
+        setStatus(`🛰️ Poursuite ISS active — ${j.source || 'serveur'}`);
+        computePasses(j.line1, j.line2);
+        return;
+      }
+      console.warn('API iss-tle:', j);
+    } catch (e) {
+      console.warn('Fetch /api/iss-tle échoué:', e);
+    }
+    const FALLBACK = {
+      line1: '1 25544U 98067A   24280.50000000  .00016717  00000-0  30777-3 0  9990',
+      line2: '2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.49815389477874',
+    };
+    issSatrec = satellite.twoline2satrec(FALLBACK.line1, FALLBACK.line2);
+    currentSatrec = issSatrec;
+    setStatus('⚠️ TLE local (périmé) — API indisponible');
+    computePasses(FALLBACK.line1, FALLBACK.line2);
+  }
+
+  function computeISSPosition() {
+    if (!issSatrec) return null;
+    const now = new Date(), gmst = satellite.gstime(now);
+    const pv = satellite.propagate(issSatrec, now);
+    if (!pv.position || !pv.velocity) return null;
+    const geo = satellite.eciToGeodetic(pv.position, gmst);
+    const speed = Math.sqrt(pv.velocity.x**2 + pv.velocity.y**2 + pv.velocity.z**2);
+    const period = (2 * Math.PI) / issSatrec.no;
+    const lat = satellite.degreesLat(geo.latitude);
+    const lon = satellite.degreesLong(geo.longitude);
+    let heading = 0;
+    if (lastPos) {
+      const dLon = lon - lastPos.lon, dLat = lat - lastPos.lat;
+      heading = Math.atan2(dLon, dLat) * 180 / Math.PI;
+      if (heading < 0) heading += 360;
+    }
+    lastPos = { lat, lon };
+    return { lat, lon, alt: geo.height, speed, heading, period };
+  }
+
+  let observer = { lat: -20.88, lon: 55.45 };
+  let passes = [], selectedIndex = -1, nextPass = null;
+
+  const fmtTime = d => new Date(d).toLocaleTimeString('fr-FR', { timeZone:'Indian/Reunion', hour:'2-digit', minute:'2-digit' });
+  const fmtDate = d => new Date(d).toLocaleDateString('fr-FR', { timeZone:'Indian/Reunion', day:'2-digit', month:'2-digit' });
+  function azToDir(az) {
+    const d = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+    return d[Math.round(az/22.5) % 16];
+  }
+  function sunPosition(date) {
+    const jd = date / 86400000 + 2440587.5, n = jd - 2451545.0;
+    const L = (280.460 + 0.9856474*n) % 360;
+    const g = ((357.528 + 0.9856003*n) % 360) * Math.PI/180;
+    const lambda = (L + 1.915*Math.sin(g) + 0.020*Math.sin(2*g)) * Math.PI/180;
+    const eps = 23.439 * Math.PI/180;
+    const r = 1.00014 - 0.01671*Math.cos(g) - 0.00014*Math.cos(2*g);
+    const AU = 149597870.7;
+    return { x: r*AU*Math.cos(lambda), y: r*AU*Math.cos(eps)*Math.sin(lambda), z: r*AU*Math.sin(eps)*Math.sin(lambda) };
+  }
+  function isVisible(satrec, timeISO, obsGd) {
+    const t = new Date(timeISO);
+    const pos = satellite.propagate(satrec, t);
+    if (!pos.position) return false;
+    const sunEci = sunPosition(t);
+    const dot = pos.position.x*sunEci.x + pos.position.y*sunEci.y + pos.position.z*sunEci.z;
+    const issLit = dot < 0;
+    const gmst = satellite.gstime(t);
+    const sunEcf = satellite.eciToEcf(sunEci, gmst);
+    const sunLook = satellite.ecfToLookAngles(obsGd, sunEcf);
+    const sunElev = sunLook.elevation * 180 / Math.PI;
+    return issLit && sunElev < -6;
+  }
+
+  function computePasses(l1, l2) {
+    try { currentSatrec = satellite.twoline2satrec(l1, l2); } catch (e) { return; }
+    const now = new Date(), end = new Date(now.getTime() + HOURS_WINDOW*3600*1000);
+    const obsGd = { longitude: observer.lon*Math.PI/180, latitude: observer.lat*Math.PI/180, height: 0.05 };
+    const result = [];
+    let t = new Date(now), inPass = false, pass = null;
+    while (t < end) {
+      const pos = satellite.propagate(currentSatrec, t);
+      if (pos.position) {
+        const gmst = satellite.gstime(t);
+        const ecf = satellite.eciToEcf(pos.position, gmst);
+        const look = satellite.ecfToLookAngles(obsGd, ecf);
+        const elev = look.elevation * 180/Math.PI;
+        const az = (look.azimuth * 180/Math.PI + 360) % 360;
+        if (elev >= MIN_ELEV) {
+          if (!inPass) {
+            inPass = true;
+            pass = { aos:{time:t.toISOString(),azimuthDeg:az}, tca:null, los:null, maxElev:-90 };
+          }
+          if (elev > pass.maxElev) {
+            pass.maxElev = elev;
+            pass.tca = { time:t.toISOString(), azimuthDeg:az, elevationDeg:elev, rangeKm:look.rangeSat };
+          }
+        } else if (inPass) {
+          inPass = false;
+          pass.los = { time:t.toISOString(), azimuthDeg:az };
+          pass.durationSeconds = (new Date(pass.los.time) - new Date(pass.aos.time))/1000;
+          pass.visible = isVisible(currentSatrec, pass.tca.time, obsGd);
+          result.push(pass);
+        }
+      }
+      t = new Date(t.getTime() + 30000);
+    }
+    result.sort((a,b) => new Date(a.aos.time) - new Date(b.aos.time));
+    passes = result; selectedIndex = -1;
+    renderPasses(); updateNextPass();
+  }
+
+  function renderPasses() {
+    const list = document.getElementById('list'); if (!list) return;
+    list.innerHTML = '';
+    const only = document.getElementById('visibleOnly').checked;
+    const filtered = passes.filter(p => !only || p.visible);
+    if (!filtered.length) {
+      list.innerHTML = '<p style="color:#929292;font-family:monospace;padding:12px">Aucun passage correspondant.</p>';
+      return;
+    }
+    filtered.forEach(p => {
+      const idx = passes.indexOf(p);
+      const el = document.createElement('div');
+      el.className = 'pass-card'
+        + (p.visible ? ' visible' : '')
+        + (p.tca.elevationDeg > 45 ? ' best' : '')
+        + (idx === selectedIndex ? ' selected' : '');
+      el.innerHTML = `
+        <div class="time">${fmtDate(p.aos.time)} · ${fmtTime(p.aos.time)} → ${fmtTime(p.los.time)}
+          <span class="badge ${p.visible?'vis':'no'}">${p.visible?'VISIBLE':'non visible'}</span></div>
+        <div class="meta">
+          Culminaison ${fmtTime(p.tca.time)} · élévation ${p.tca.elevationDeg.toFixed(1)}° ·
+          distance ${p.tca.rangeKm.toFixed(0)} km · durée ${p.durationSeconds}s<br>
+          Direction : montée ${azToDir(p.aos.azimuthDeg)} → culminaison ${azToDir(p.tca.azimuthDeg)} →
+          descente ${azToDir(p.los.azimuthDeg)}
+        </div>`;
+      el.onclick = () => { selectedIndex = idx; renderPasses(); drawSkyMap(p); };
+      list.appendChild(el);
+    });
+  }
+
+  function updateNextPass() {
+    const now = new Date();
+    nextPass = passes.map(p => new Date(p.aos.time)).find(t => t > now) || null;
+    tickCountdown();
+  }
+  function tickCountdown() {
+    const el = document.getElementById('countdown'), info = document.getElementById('nextInfo');
+    if (!el) return;
+    if (!nextPass) { el.textContent = '—'; if (info) info.textContent = ''; return; }
+    const diff = nextPass - new Date();
+    if (diff <= 0) { updateNextPass(); return; }
+    const h = Math.floor(diff/3600000), m = Math.floor(diff%3600000/60000), s = Math.floor(diff%60000/1000);
+    el.textContent = `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+    const p = passes.find(x => new Date(x.aos.time).getTime() === nextPass.getTime());
+    if (p && info) {
+      info.textContent = `${fmtDate(p.aos.time)} à ${fmtTime(p.aos.time)} · élévation max ${p.tca.elevationDeg.toFixed(0)}° · ${p.visible?'✅ visible':'non visible'}`;
+    }
+    setTimeout(tickCountdown, 1000);
+  }
+
+  function drawSkyMap(pass) {
+    const svg = document.getElementById('skyMap'); if (!svg) return;
+    svg.innerHTML = '';
+    const NS = 'http://www.w3.org/2000/svg';
+    [30,60,90].forEach(elev => {
+      const r = 100 * (1 - elev/90);
+      const c = document.createElementNS(NS,'circle');
+      c.setAttribute('cx',0); c.setAttribute('cy',0); c.setAttribute('r',r);
+      c.setAttribute('fill','none'); c.setAttribute('stroke','#e5e5e5');
+      svg.appendChild(c);
+    });
+    [0,90,180,270].forEach(az => {
+      const a = (az-90)*Math.PI/180;
+      const l = document.createElementNS(NS,'line');
+      l.setAttribute('x1',0); l.setAttribute('y1',0);
+      l.setAttribute('x2',100*Math.cos(a)); l.setAttribute('y2',100*Math.sin(a));
+      l.setAttribute('stroke','#e5e5e5');
+      svg.appendChild(l);
+    });
+    if (!currentSatrec) return;
+    const obsGd = { longitude: observer.lon*Math.PI/180, latitude: observer.lat*Math.PI/180, height: 0.05 };
+    const t0 = new Date(pass.aos.time), t1 = new Date(pass.los.time);
+    const pts = [];
+    for (let t = t0; t <= t1; t = new Date(t.getTime()+5000)) {
+      const pos = satellite.propagate(currentSatrec, t);
+      if (!pos.position) continue;
+      const gmst = satellite.gstime(t);
+      const ecf = satellite.eciToEcf(pos.position, gmst);
+      const look = satellite.ecfToLookAngles(obsGd, ecf);
+      const elev = look.elevation * 180/Math.PI;
+      const az = (look.azimuth * 180/Math.PI + 360) % 360;
+      if (elev < 0) continue;
+      const r = 100 * (1 - elev/90), a = (az-90)*Math.PI/180;
+      pts.push([r*Math.cos(a), r*Math.sin(a)]);
+    }
+    if (pts.length) {
+      const path = document.createElementNS(NS,'polyline');
+      path.setAttribute('points', pts.map(p => p.join(',')).join(' '));
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke', pass.visible ? '#16a34a' : '#000091');
+      path.setAttribute('stroke-width','2');
+      svg.appendChild(path);
+      const r = 100 * (1 - pass.tca.elevationDeg/90);
+      const a = (pass.tca.azimuthDeg-90)*Math.PI/180;
+      const dot = document.createElementNS(NS,'circle');
+      dot.setAttribute('cx', r*Math.cos(a));
+      dot.setAttribute('cy', r*Math.sin(a));
+      dot.setAttribute('r', 4);
+      dot.setAttribute('fill', pass.visible ? '#16a34a' : '#000091');
+      svg.appendChild(dot);
+    }
+    const info = document.getElementById('skyMapInfo');
+    if (info) info.textContent = `${fmtTime(pass.aos.time)} → ${fmtTime(pass.los.time)} · max ${pass.tca.elevationDeg.toFixed(0)}° à ${azToDir(pass.tca.azimuthDeg)}`;
+  }
+
+  function setStatus(msg) {
+    const el = document.getElementById('status'); if (el) el.textContent = msg;
+  }
+
+  let lastUpdate = 0;
+  function loop(ts) {
+    if (!paused && baseGrid && ts - lastUpdate > 1000) {
+      lastUpdate = ts;
+      const pos = computeISSPosition();
+      if (pos) { issTrack.push({ lon: pos.lon, lat: pos.lat }); if (issTrack.length > TRACK_MAX) issTrack.shift(); }
+      renderGrid(baseGrid, pos);
+      renderTelemesures(pos);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  document.getElementById('btn-toggle-iss').addEventListener('click', (e) => {
+    paused = !paused;
+    e.target.textContent = paused ? '▶ Reprendre' : '⏸ Pause';
+  });
+  document.getElementById('btn-refresh-iss').addEventListener('click', loadTLE);
+  document.getElementById('btn-clear-iss').addEventListener('click', () => {
+    issTrack = []; renderGrid(baseGrid, computeISSPosition());
+  });
+  document.getElementById('btn-geo-iss').addEventListener('click', () => {
+    if (!navigator.geolocation) return alert('Géolocalisation non supportée');
+    navigator.geolocation.getCurrentPosition(pos => {
+      observer.lat = pos.coords.latitude;
+      observer.lon = pos.coords.longitude;
+      document.getElementById('observerLabel').textContent =
+        `Observateur : ${observer.lat.toFixed(2)}, ${observer.lon.toFixed(2)} (GPS)`;
+      if (currentSatrec) computePassesFromSatrec();
+    }, err => alert('Position impossible : ' + err.message));
+  });
+  document.getElementById('visibleOnly').addEventListener('change', renderPasses);
+
+  function computePassesFromSatrec() {
+    if (!currentSatrec) return;
+    const now = new Date(), end = new Date(now.getTime() + HOURS_WINDOW*3600*1000);
+    const obsGd = { longitude: observer.lon*Math.PI/180, latitude: observer.lat*Math.PI/180, height: 0.05 };
+    const result = [];
+    let t = new Date(now), inPass = false, pass = null;
+    while (t < end) {
+      const pos = satellite.propagate(currentSatrec, t);
+      if (pos.position) {
+        const gmst = satellite.gstime(t);
+        const ecf = satellite.eciToEcf(pos.position, gmst);
+        const look = satellite.ecfToLookAngles(obsGd, ecf);
+        const elev = look.elevation * 180/Math.PI;
+        const az = (look.azimuth * 180/Math.PI + 360) % 360;
+        if (elev >= MIN_ELEV) {
+          if (!inPass) { inPass = true; pass = { aos:{time:t.toISOString(),azimuthDeg:az}, tca:null, los:null, maxElev:-90 }; }
+          if (elev > pass.maxElev) { pass.maxElev = elev; pass.tca = { time:t.toISOString(), azimuthDeg:az, elevationDeg:elev, rangeKm:look.rangeSat }; }
+        } else if (inPass) {
+          inPass = false;
+          pass.los = { time:t.toISOString(), azimuthDeg:az };
+          pass.durationSeconds = (new Date(pass.los.time) - new Date(pass.aos.time))/1000;
+          pass.visible = isVisible(currentSatrec, pass.tca.time, obsGd);
+          result.push(pass);
+        }
+      }
+      t = new Date(t.getTime() + 30000);
+    }
+    result.sort((a,b) => new Date(a.aos.time) - new Date(b.aos.time));
+    passes = result; selectedIndex = -1;
+    renderPasses(); updateNextPass();
+  }
+
+  (async function init() {
+    if (typeof satellite === 'undefined') { setStatus('❌ satellite.js non chargé'); return; }
+    setStatus('Chargement carte…');
+    await loadLand();
+    setStatus('Génération grille…');
+    baseGrid = buildGrid();
+    renderGrid(baseGrid);
+    await loadTLE();
+    requestAnimationFrame(loop);
+  })();
+})();
+</script>
+
+</body>
+</html>
